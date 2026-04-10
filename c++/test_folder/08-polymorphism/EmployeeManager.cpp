@@ -16,6 +16,7 @@ public:
     {
         cout << "Name: " << name << endl;
     }
+    
 };
 class PermanentWorker : public Employee
 {

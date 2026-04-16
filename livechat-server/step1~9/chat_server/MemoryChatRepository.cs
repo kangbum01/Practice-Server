@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Server
 {
-    public class MemoryChatRepository : IChatRepository
+    public class MemoryChatRepository : IChatRepository //인터페이스
     {
         private List<ChatMessage> _message;
         private int _maxHistoryCount;
@@ -14,6 +14,7 @@ namespace Server
             _maxHistoryCount = maxHistoryCount;
             _lockObject = new object();
         }
+        // 인터페이스에 선언된 2개의 메서드 정의
         public void SaveChatMessage(ChatMessage chatMessage)
         {
             lock(_lockObject)

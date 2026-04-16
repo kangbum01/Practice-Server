@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Security .Cryptography.X509Certificates;
 using System.Threading.Tasks;
 
 namespace Server
@@ -7,7 +6,6 @@ namespace Server
     public class ServerManager
     {
         private List<ClientSession> _sessions;
-        private List<ChatMessage> _recentMessages;
 
         private HashSet<string> _loggedInNickNames;
         private object _sessionLock;
@@ -15,10 +13,10 @@ namespace Server
 
         private const int MAX_CHAT_HISTORY = 10;
 
+        // 저장소를 인자로 받는 ServerManager
         public ServerManager(IChatRepository chatRepository)
         {
             _sessions = new List<ClientSession>();
-            _recentMessages = new List<ChatMessage>();
             _sessionLock = new  object();
             _loggedInNickNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
             _chatRepository = chatRepository;
@@ -72,6 +70,7 @@ namespace Server
             }
         }
 
+        // 메시지 저장 인터페이스에 선언된 함수를 사용
         public void SaveChatMessage(ChatMessage chatMessage)
         {
             _chatRepository.SaveChatMessage(chatMessage);

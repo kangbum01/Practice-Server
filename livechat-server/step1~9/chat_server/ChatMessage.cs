@@ -14,6 +14,13 @@ namespace Server
             Message = message;
             SentTime = DateTime.Now.ToString("yyyy-mm-dd HH:mm:ss");
         }
+
+        public ChatMessage(string nickName, string message, string sentTime)
+        {
+            NickName = nickName;
+            Message = message;
+            SentTime = sentTime;
+        }
         public string ToChatPacket()
         {
             return "CHAT|" + NickName + "|" + Message + "|" + SentTime;

@@ -9,7 +9,11 @@ namespace Server
     {
         static async Task Main(string[] args)
         {
-            IChatRepository chatRepository = new MemoryChatRepository(10);
+            // 전과 달리 postgresql에 데이터를 저장
+            string connectionString = "Host=127.0.0.1;Username=postgres;Password=1234;Database=livechat";   
+            //저장소를 넣어줄 ServerManager
+            
+            IChatRepository chatRepository = new PostgreSqlChatRepository(connectionString);
             ServerManager serverManager = new ServerManager(chatRepository);
 
             TcpListener listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 5000);

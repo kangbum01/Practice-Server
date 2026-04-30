@@ -10,7 +10,7 @@ namespace Server
         static async Task Main(string[] args)
         {
             // 전과 달리 postgresql에 데이터를 저장
-            string connectionString = "Host=127.0.0.1;Username=postgres;Password=1234;Database=livechat";   
+            string connectionString = "Host=127.0.0.1;Port=5432;Username=postgres;Password=qwer1234;Database=postgres";   
             //저장소를 넣어줄 ServerManager
             
             IChatRepository chatRepository = new PostgreSqlChatRepository(connectionString);

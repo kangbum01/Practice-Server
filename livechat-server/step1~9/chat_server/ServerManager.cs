@@ -13,6 +13,8 @@ namespace Server
 
         private const int MAX_CHAT_HISTORY = 10;
 
+        public RoomManager RoomManager { get; private set; }
+
         // 저장소를 인자로 받는 ServerManager
         public ServerManager(IChatRepository chatRepository)
         {
@@ -20,6 +22,8 @@ namespace Server
             _sessionLock = new  object();
             _loggedInNickNames = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
             _chatRepository = chatRepository;
+
+            RoomManager = new RoomManager();
         }
         public void AddSession(ClientSession session)
         {

@@ -12,7 +12,7 @@ namespace Server
         {
             NickName = nickName;
             Message = message;
-            SentTime = DateTime.Now.ToString("yyyy-mm-dd HH:mm:ss");
+            SentTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
         }
 
         public ChatMessage(string nickName, string message, string sentTime)

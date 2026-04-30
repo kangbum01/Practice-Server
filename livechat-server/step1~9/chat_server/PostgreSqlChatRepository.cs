@@ -17,17 +17,27 @@ namespace Server
 
         public void SaveChatMessage(ChatMessage chatMessage)
         {
-            using var connection = _dataSource.OpenConnection();
+            try
+            {
+                using var connection = _dataSource.OpenConnection();
 
-            using var command = new NpgsqlCommand(
-                @"INSERT INTO chat_message (nickname, message, sent_at)
-                  VALUES (@nickname, @message, @sent_at)", connection);
-            command.Parameters.AddWithValue("nickname", chatMessage.NickName);
-            command.Parameters.AddWithValue("message", chatMessage.Message);
-            command.Parameters.AddWithValue("sent_at", DateTime.Parse(chatMessage.SentTime));
-            command.ExecuteNonQuery();
+                using var command = new NpgsqlCommand(
+                    @"INSERT INTO chat_messages (nickname, message, sent_at)
+                    VALUES (@nickname, @message, @sent_at)", connection);
+                command.Parameters.AddWithValue("nickname", chatMessage.NickName);
+                command.Parameters.AddWithValue("message", chatMessage.Message);
+                command.Parameters.AddWithValue("sent_at", DateTime.Parse(chatMessage.SentTime));
+                command.ExecuteNonQuery();                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("===DB Save Error===");
+                Console.WriteLine(ex.ToString());
+                throw;
+            }
+            
         }
-        public List<ChatMessage> GetChatMessages(int count)
+        public List<ChatMessage> GetRecentMessages(int count)
         {
             List<ChatMessage> messages = new List<ChatMessage>();
 
@@ -46,7 +56,7 @@ namespace Server
             {
                 string nickName = reader.GetString(0);
                 string message = reader.GetString(1);
-                DataSetDateTime sentAt = reader.GetDataTime(2);
+                DateTime sentAt = reader.GetDateTime(2);
 
                 messages.Add(
                     new ChatMessage(

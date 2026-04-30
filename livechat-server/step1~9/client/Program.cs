@@ -20,6 +20,8 @@ namespace Client
 
             Console.WriteLine("Connected Server");
             Console.WriteLine("/name NickName");
+            Console.WriteLine("/join roomName");
+            Console.WriteLine("/rooms ");
             Console.WriteLine("/move left");
             Console.WriteLine("/move right");
             Console.WriteLine("/move up");
@@ -39,7 +41,19 @@ namespace Client
                     continue;
                 }
 
-                if(input.StartsWith("/name "))
+                // 방 이동 명령어
+                if(input.StartsWith("/join "))
+                {
+                    string roomName = input.Substring(6).Trim();
+                    await writer.WriteLineAsync("JOIN_ROOM|" + roomName);
+                    await writer.FlushAsync();
+                }
+                else if(input == "/rooms")
+                {
+                    await writer.WriteLineAsync("ROOM_LIST");
+                    await writer.FlushAsync();
+                }
+                else if(input.StartsWith("/name "))
                 {
                     // 닉네임 추출
                     string name = input.Substring(6).Trim();
@@ -155,11 +169,11 @@ namespace Client
             {
                 if(parts.Length >= 4)
                 {
-                    string nickName = parts[1];
-                    string chatText = parts[2];
-                    string sentTime = parts[3];
+                    string roomName = parts[1];
+                    string nickName = parts[2];
+                    string chatText = parts[3];
 
-                    Console.WriteLine("[CHAT][" + sentTime + "]" + nickName + ":" + chatText);
+                    Console.WriteLine("[CHAT][" + roomName + ":" + nickName + "]" + chatText);
                 }
                 return;
             }

@@ -15,6 +15,8 @@ namespace Server
         private StreamWriter _writer;
         private ServerManager _server;
 
+        public GameRoom CurrentRoom { get; set; }
+
         public string NickName { get; private set; }
         public int PosX {get; private set; }
         public int PosY {get; private set; }
@@ -55,19 +57,24 @@ namespace Server
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Session Error: " + ex.Message);
+                Console.WriteLine("=== Server Exception Error ===");
+                Console.WriteLine(ex.ToString());
             }
             finally
             {
                 bool wasLoggedIn = IsLoggedIn;
                 string LeaveUserNickName = NickName;
+
+                // 일단 Room에서 현재 유저를 제거
+                await _server.RoomManager.RemoveClientAsync(this);
+                
                 _server.RemoveSession(this);
                 _client.Close();
 
                 if(wasLoggedIn)
                 {
+                    //할당된 유저 이름 제거
                     _server.UnregisterNickName(LeaveUserNickName);
-                    await _server.BroadcastAsync("SYSTEM|" + LeaveUserNickName + "|LEAVE");
                 }
             }
         }
@@ -112,8 +119,10 @@ namespace Server
                 NickName = requestedNickName;
                 IsLoggedIn = true;
                 await SendAsync("LOGIN_OK|" + NickName);
+                // 해당 방의 유저들에게만 새로운 유저의 참가를 알린다
+                await _server.RoomManager.MoveClientToRoomAsync(this, "Lobby");
+                
                 await SendChatHistoryAsync();
-                await _server.BroadcastAsync("SYSTEM|" + NickName + "|JOIN");
                 return;
             }
 
@@ -125,6 +134,33 @@ namespace Server
                 return;
             }
 
+            if (command == "ROOM_LIST")
+            {
+                await SendAsync(_server.RoomManager.BuildRoomListPacket());
+                return;
+            }
+
+            if(command == "JOIN_ROOM")
+            {
+                if (parts.Length < 2)
+                {
+                    await SendAsync("ERROR|JOIN_ROOM_ERROR");
+                    return;
+                }
+
+                string roomName = parts[1].Trim();
+
+                if(string.IsNullOrWhiteSpace(roomName))
+                {
+                    await SendAsync("ERROR|INVALID_ROOM_NAME");
+                    return;
+                }
+
+                // 출력 예시 : JOIN_ROOM|Room1
+                await _server.RoomManager.MoveClientToRoomAsync(this, roomName);
+                return;
+            }
+
             if (command == "CHAT")
             {
                 if(parts.Length < 2)
@@ -133,12 +169,19 @@ namespace Server
                     return;
                 }
 
+                if (CurrentRoom == null)
+                {
+                    await SendAsync("ERROR|ROOM_REQUIRED");
+                    return;
+                }
+            
                 string chatText = parts[1];
 
                 ChatMessage chatMessage = new ChatMessage(NickName, chatText);
                 _server.SaveChatMessage(chatMessage);
 
-                await _server.BroadcastAsync(chatMessage.ToChatPacket());
+                // 메세지 전송을 전체 서버에서 현재 방으로 한정
+                await CurrentRoom.BroadcastAsync("CHAT|" + CurrentRoom.Name + "|" + NickName + "|" + chatText);
                 return;
             }
             if (command == "REQUEST_CHAT_HISTORY")
@@ -153,6 +196,13 @@ namespace Server
                     await SendAsync("ERROR|MOVE_FORMAT");
                     return;
                 }
+
+                if (CurrentRoom == null)
+                {
+                    await SendAsync("ERROR|ROOM_REQUIRED");
+                    return;
+                }
+
                 string direction = parts[1].ToUpper();
                 Move(direction);
 
@@ -167,7 +217,6 @@ namespace Server
             {
                 // 해당 세션을 종료
                 await SendAsync("QUIT_OK");
-                _server.RemoveSession(this);
                 _client.Close();
                 return;
             }
@@ -201,8 +250,7 @@ namespace Server
         private string BuildPlayerMovePacket()
         {
             return "PLAYER_MOVE|" + NickName + "|" + PosX + "|" + PosY; 
-        }
-        private async Task SendChatHistoryAsync()
+        }        private async Task SendChatHistoryAsync()
         {
             List<ChatMessage> history = _server.GetRecentMessage();
 
@@ -212,7 +260,6 @@ namespace Server
             {
                 await SendAsync(message.ToHistoryPacket());
             }
-
             await SendAsync("CHAT_HISTORY_END");
         }
 

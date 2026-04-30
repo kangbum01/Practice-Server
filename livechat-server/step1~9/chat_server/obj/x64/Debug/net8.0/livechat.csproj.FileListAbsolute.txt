@@ -13,3 +13,9 @@ C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_serve
 C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\obj\x64\Debug\net8.0\livechat.pdb
 C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\obj\x64\Debug\net8.0\livechat.genruntimeconfig.cache
 C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\obj\x64\Debug\net8.0\ref\livechat.dll
+C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\obj\x64\Debug\net8.0\livechat.csproj.AssemblyReference.cache
+C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\bin\x64\Debug\net8.0\Microsoft.Extensions.DependencyInjection.Abstractions.dll
+C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\bin\x64\Debug\net8.0\Microsoft.Extensions.Logging.Abstractions.dll
+C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\bin\x64\Debug\net8.0\Npgsql.dll
+C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\bin\x64\Debug\net8.0\System.Diagnostics.DiagnosticSource.dll
+C:\Users\alvin\OneDrive\바탕 화면\project\livechat-server\step1~9\chat_server\obj\x64\Debug\net8.0\livechat.csproj.Up2Date

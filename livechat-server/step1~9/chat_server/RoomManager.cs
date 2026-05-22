@@ -59,7 +59,7 @@ namespace Server
             if (oldRoom != null)
             {
                 oldRoom.RemoveClient(client);
-                await oldRoom.BroadcastAsync("SYSTEM|" + client.NickName + "Leave");
+                await oldRoom.BroadcastAsync("SYSTEM|" + client.NickName + "|Leave");
             }
 
             newRoom.AddClient(client);
@@ -67,8 +67,8 @@ namespace Server
 
             // client 화면에 현재 이동한 방을 출력
             // 신규 client가 들어간 방의 유저들에게 그 사실을 알린다.
-            await client.SendAsync("SYSTEM|Current Room: " + newRoom.Name);
-            await newRoom.BroadcastAsync("SYSTEM|" + client.NickName + "Enter the room");
+            await client.SendAsync("SYSTEM|Current Room: |" + newRoom.Name);
+            await newRoom.BroadcastAsync("SYSTEM|" + client.NickName + "|Enter the room");
         }
 
         // 기존에는 서버 목록에서만 종료한 유저를 제거하면 됐다.
@@ -81,7 +81,7 @@ namespace Server
             if (room != null)
             {
                 room.RemoveClient(client);
-                await room.BroadcastAsync("SYSTEM|" + client.NickName + "Leave");
+                await room.BroadcastAsync("SYSTEM|" + client.NickName + "|Leave");
                 client.CurrentRoom = null;
             }
         }

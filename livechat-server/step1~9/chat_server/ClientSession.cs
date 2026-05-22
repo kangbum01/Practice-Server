@@ -229,7 +229,7 @@ namespace Server
         {
             if (direction == "LEFT")
             {
-                PosX = -1;
+                PosX -= 1;
             }
             else if (direction == "RIGHT")
             {

@@ -167,6 +167,7 @@ namespace Client
             }
             if (packetType == "CHAT")
             {
+                // 서버 패킷: CHAT|RoomName|NickName|ChatText
                 if(parts.Length >= 4)
                 {
                     string roomName = parts[1];

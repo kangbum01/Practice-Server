@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("livechat")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e9c59fff8e64d903d438102554ab8cfe66253f56")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+37db438a9913b94209256715a59f65f211ad4213")]
 [assembly: System.Reflection.AssemblyProductAttribute("livechat")]
 [assembly: System.Reflection.AssemblyTitleAttribute("livechat")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

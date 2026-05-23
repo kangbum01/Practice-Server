@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\alvin\\OneDrive\\바탕 화면\\project\\livechat-server\\step1~9\\client\\client.csproj": {}
+    "C:\\Users\\alvin\\OneDrive\\바탕 화면\\Practice-Server\\livechat-server\\step1~9\\client\\client.csproj": {}
   },
   "projects": {
-    "C:\\Users\\alvin\\OneDrive\\바탕 화면\\project\\livechat-server\\step1~9\\client\\client.csproj": {
+    "C:\\Users\\alvin\\OneDrive\\바탕 화면\\Practice-Server\\livechat-server\\step1~9\\client\\client.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\alvin\\OneDrive\\바탕 화면\\project\\livechat-server\\step1~9\\client\\client.csproj",
+        "projectUniqueName": "C:\\Users\\alvin\\OneDrive\\바탕 화면\\Practice-Server\\livechat-server\\step1~9\\client\\client.csproj",
         "projectName": "client",
-        "projectPath": "C:\\Users\\alvin\\OneDrive\\바탕 화면\\project\\livechat-server\\step1~9\\client\\client.csproj",
+        "projectPath": "C:\\Users\\alvin\\OneDrive\\바탕 화면\\Practice-Server\\livechat-server\\step1~9\\client\\client.csproj",
         "packagesPath": "C:\\Users\\alvin\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\alvin\\OneDrive\\바탕 화면\\project\\livechat-server\\step1~9\\client\\obj\\",
+        "outputPath": "C:\\Users\\alvin\\OneDrive\\바탕 화면\\Practice-Server\\livechat-server\\step1~9\\client\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

@@ -208,7 +208,9 @@ namespace Server
 
                 // 사용자 이동 패킷 생성
                 string packet = BuildPlayerMovePacket();
-                await _server.BroadcastAsync(packet);
+
+                // 서버 전체가 아닌, '현재 방' 안의 유저들에게만 이동 패킷을 전달
+                await CurrentRoom.BroadcastAsync(packet);
                 return;
             }
 

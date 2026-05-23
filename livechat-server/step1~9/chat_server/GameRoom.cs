@@ -67,6 +67,10 @@ namespace Server
 
                     // 시작은 방장(Player1 부터)
                     CurrentTurn = Player1;
+
+                    // 캡슐화 유지를 위해 ClientSessions에 Set함수 추가
+                    Player1.SetPosition(0,0);
+                    Player2.SetPosition(4,4);
                 }
 
                 return true;

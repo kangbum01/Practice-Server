@@ -79,7 +79,7 @@ namespace Server
             // 만약 내가 들어감으로써 방이 꽉 찼다면, 게임 시작 패킷을 전달
             if (newRoom.State == RoomState.PLAYING)
             {
-                await newRoom.BroadcastAsync("GAME_START");
+                await newRoom.BroadcastAsync("GAME_START|" + newRoom.Player1.NickName + "|" + newRoom.Player2.NickName);
             }
         }
 

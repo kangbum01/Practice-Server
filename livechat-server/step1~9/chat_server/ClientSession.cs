@@ -190,27 +190,79 @@ namespace Server
                 return;
             }
             if(command == "MOVE")
-            {
-                if (parts.Length< 2)
+            {   
+                // MOVE|목표X|목표Y 형태로 전달되었는지 확인
+                if (parts.Length< 3)
                 {
-                    await SendAsync("ERROR|MOVE_FORMAT");
+                    await SendAsync("ERROR|MOVE_FORMAT_INVALID");
                     return;
                 }
 
-                if (CurrentRoom == null)
+                if (CurrentRoom == null || CurrentRoom.Name == "Lobby")
                 {
                     await SendAsync("ERROR|ROOM_REQUIRED");
                     return;
                 }
 
-                string direction = parts[1].ToUpper();
-                Move(direction);
+                // 1단계: 게임 상태 및 턴(Turn) 검증
+                if (CurrentRoom.State != RoomState.PLAYING)
+                {
+                    await SendAsync("ERROR|GAME_NOT_STARTED");
+                    return;
+                }
 
-                // 사용자 이동 패킷 생성
-                string packet = BuildPlayerMovePacket();
+                if (CurrentRoom.CurrentTurn != this)
+                {
+                    await SendAsync("ERROR|NOT_YOUR_TURN");
+                    return;
+                }
 
-                // 서버 전체가 아닌, '현재 방' 안의 유저들에게만 이동 패킷을 전달
-                await CurrentRoom.BroadcastAsync(packet);
+                // 2단계 가상 좌표 파싱
+                if (!int.TryParse(parts[1], out int targetX) || !int.TryParse(parts[2], out int targetY))
+                {
+                    await SendAsync("ERROR|INVALID_COORDINATE_FORMAT");
+                    return;
+                }
+
+                // 3단계 규칙 검증 (맵 이탈 방지 및 1칸 이동 제어)
+                // 3-1 5x5 보드판 (0~4) 밖으로 나갔는지 확인
+                if (targetX < 0 || targetX > 4 || targetY < 0 || targetY > 4)
+                {
+                    await SendAsync("ERROR|OUT_OF_BOUNDS");
+                    return;
+                }
+                
+                // 3-2 가로, 세로, 대각선으로 딱 1칸만 움직였는지 확인
+                int diffX = Math.Abs(targetX - PosX);
+                int diffY = Math.Abs(targetY - PosY);
+
+                if (diffX > 1 || diffY > 1 || (diffX == 0 && diffY == 0))
+                {
+                    await SendAsync("ERROR|INVALID_MOVE_RULE");
+                    return;
+                }
+
+                // 4단계: 상태 확정 및 승패 판정 및 턴 넘기기
+
+                PosX = targetX;
+                PosY = targetY;
+
+                // 내 상대방의 위치 찾기
+                ClientSession opponent = (CurrentRoom.Player1 == this) ? CurrentRoom.Player2 : CurrentRoom.Player1;
+                
+                // 승패 판정
+                if (opponent != null && opponent.PosX == PosX && opponent.PosY == PosY)
+                {
+                    await CurrentRoom.BroadcastAsync("GAME_OVER|WIN|" + NickName);
+                }
+
+                else
+                {
+                    string movePacket = BuildPlayerMovePacket();
+                    await CurrentRoom.BroadcastAsync(movePacket);
+                    CurrentRoom.SwitchTurn();
+                }
+                
                 return;
             }
 
@@ -226,25 +278,10 @@ namespace Server
             await SendAsync("ERROR|UNKNOWN_COMMAND");
         }
 
-        // 사용자 동작 함수
-        private void Move(string direction)
+        public void SetPosition(int x, int y)
         {
-            if (direction == "LEFT")
-            {
-                PosX -= 1;
-            }
-            else if (direction == "RIGHT")
-            {
-                PosX += 1;
-            }
-            else if (direction == "UP")
-            {
-                PosY += 1;
-            }
-            else if (direction == "DOWN")
-            {
-                PosY -= 1;
-            }
+            PosX = x;
+            PosY = y;
         }
 
         //패킷은 서버가 클라이언트에서 전달할 메시지가 담겨져있다.
@@ -252,7 +289,8 @@ namespace Server
         private string BuildPlayerMovePacket()
         {
             return "PLAYER_MOVE|" + NickName + "|" + PosX + "|" + PosY; 
-        }        private async Task SendChatHistoryAsync()
+        }        
+        private async Task SendChatHistoryAsync()
         {
             List<ChatMessage> history = _server.GetRecentMessage();
 

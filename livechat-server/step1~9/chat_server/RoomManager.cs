@@ -66,8 +66,20 @@ namespace Server
             // 방에서 사용자를 제거하고 메세지를 그 방의 유저들에게 전달
             if (oldRoom != null)
             {
-                oldRoom.RemoveClient(client);
-                await oldRoom.BroadcastAsync("SYSTEM|" + client.NickName + "|Leave");
+                bool isRoomEmpty = await oldRoom.RemoveClientAsync(client);
+
+                if (isRoomEmpty)
+                {
+                    lock (_lock)
+                    {
+                        _rooms.Remove(oldRoom.Name);
+                    }
+                    Console.WriteLine($"[서버 로그] {oldRoom.Name}방에 인원이 없어 제거");
+                }
+                else
+                {
+                    await oldRoom.BroadcastAsync("SYSTEM|" + client.NickName + "|Leave");
+                }
             }
 
             client.CurrentRoom = newRoom;
@@ -92,7 +104,16 @@ namespace Server
 
             if (room != null)
             {
-                room.RemoveClient(client);
+                bool isRoomEmpty = await room.RemoveClientAsync(client);
+
+                if (isRoomEmpty)
+                {
+                    lock(_lock)
+                    {
+                        _rooms.Remove(room.Name);
+                    }
+                    Console.WriteLine($"[서버 로그]유저 종료로 빈방 제거: {room.Name}");
+                }
                 await room.BroadcastAsync("SYSTEM|" + client.NickName + "|Leave");
                 client.CurrentRoom = null;
             }

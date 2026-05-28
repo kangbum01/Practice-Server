@@ -15,7 +15,7 @@ namespace Server
         private StreamWriter _writer;
         private ServerManager _server;
 
-        public GameRoom CurrentRoom { get; set; }
+        public GameRoom? CurrentRoom { get; set; }
 
         public string NickName { get; private set; }
         public int PosX {get; private set; }
@@ -51,9 +51,14 @@ namespace Server
                         break;
                     }
 
+                    Console.WriteLine($"[RECV | {NickName}] {message}");
                     // 메시지 관리
                     await HandleMessageAsync(message);
                 }
+            }
+            catch (IOException)
+            {
+                Console.WriteLine($"[DISCONNECT] {NickName}님의 연결이 강제로 끊어졌습니다.");
             }
             catch (Exception ex)
             {
@@ -62,21 +67,29 @@ namespace Server
             }
             finally
             {
-                bool wasLoggedIn = IsLoggedIn;
-                string LeaveUserNickName = NickName;
-
-                // 일단 Room에서 현재 유저를 제거
-                await _server.RoomManager.RemoveClientAsync(this);
-                
-                _server.RemoveSession(this);
-                _client.Close();
-
-                if(wasLoggedIn)
-                {
-                    //할당된 유저 이름 제거
-                    _server.UnregisterNickName(LeaveUserNickName);
-                }
+                await CleanUpSessionAsync();
             }
+        }
+
+        private async Task CleanUpSessionAsync()
+        {
+            // 유저가 방에 있었다면 방에서 제거
+            if (CurrentRoom != null)
+            {
+                await _server.RoomManager.RemoveClientAsync(this);
+            }
+
+            // 서버 관리 목록에서 제거 및 닉네임 반환
+            _server.RemoveSession(this);
+            if (NickName != "Unknown")
+            {
+                _server.UnregisterNickName(NickName);
+            }
+
+            // 소켓 스트림 닫기 (메모리 해제)
+            _client.Close();
+
+            Console.WriteLine($"[CLEANUP] {NickName}님의 리소스가 성공적으로 정리되었습니다.");
         }
 
         private async Task HandleMessageAsync(string message)
@@ -187,6 +200,24 @@ namespace Server
             if (command == "REQUEST_CHAT_HISTORY")
             {
                 await SendChatHistoryAsync();
+                return;
+            }
+
+            if (command == "READY")
+            {
+                if(CurrentRoom != null && CurrentRoom.Name != "Lobby")
+                {
+                    await CurrentRoom.HandleReadyAsync(this);
+                }
+                return;
+            }
+
+            if (command == "START")
+            {
+                if(CurrentRoom != null && CurrentRoom.Name != "Lobby")
+                {
+                    await CurrentRoom.HandleStartAsync(this);
+                }
                 return;
             }
             if(command == "MOVE")
@@ -305,8 +336,21 @@ namespace Server
 
         public async Task SendAsync(string message)
         {
-            await _writer.WriteLineAsync(message);
-            await _writer.FlushAsync();
+            try
+            {
+                Console.WriteLine($"[SEND | {NickName}] {message}");
+
+                await _writer.WriteLineAsync(message);
+                await _writer.FlushAsync();
+            }
+            catch(ObjectDisposedException)
+            {
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SEND ERROR | {NickName}] 패킷 전송 실패: {ex.Message}");
+            }
         }
     }
 }

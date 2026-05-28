@@ -19,10 +19,12 @@ namespace Server
         public RoomState State { get; private set; } // 방 상태
         public const int MAX_PLAYERS = 2; // 최대 인원
 
+        public bool IsPlayer2Ready { get; private set; } = false;
+
         // 턴 관리 및 플레이어 할당용 변수
-        public ClientSession Player1 { get; private set; }
-        public ClientSession Player2 { get; private set; }
-        public ClientSession CurrentTurn { get; private set; } 
+        public ClientSession? Player1 { get; private set; }
+        public ClientSession? Player2 { get; private set; }
+        public ClientSession? CurrentTurn { get; private set; } 
         public GameRoom(string name)
         {
             Name = name;
@@ -32,6 +34,8 @@ namespace Server
         }
 
         // 기존 AddClient -> TryAddClient로 변경
+        // Player2가 ready를 하고 Player1이 Start를 해야 PLAYING으로 변경
+        // 그래서 기존의 코드 삭제함
         public bool TryAddClient(ClientSession client)
         {
             lock (_lock)
@@ -59,49 +63,61 @@ namespace Server
                         }
                     }
                 }
-
-                // 사용자를 포함해서 방 인원이 최대 인원이 되었다면 상태 변경
-                if (Name != "Lobby" && _clients.Count == MAX_PLAYERS)
-                {
-                    State = RoomState.PLAYING;
-
-                    // 시작은 방장(Player1 부터)
-                    CurrentTurn = Player1;
-
-                    // 캡슐화 유지를 위해 ClientSessions에 Set함수 추가
-                    Player1.SetPosition(0,0);
-                    Player2.SetPosition(4,4);
-                }
-
                 return true;
             }
         }
 
-        public void RemoveClient(ClientSession client)
+        public async Task<bool> RemoveClientAsync(ClientSession client)
         {
+            bool wasPlaying = false;
+            bool hostChanged = false;
+            bool shouldDestroyRoom = false;
+            string newHostName = "";
+
             lock (_lock)
             {
                 _clients.Remove(client);
 
-                if (Name != "Lobby")
+                if (State == RoomState.PLAYING)
+                {
+                    State = RoomState.WAITING;
+                    CurrentTurn = null;
+                    wasPlaying = true;
+                }
+
+                if (Name != "Lobby" && _clients.Count == 0)
+                {
+                    shouldDestroyRoom = true;
+                }
+                else if (Name != "Lobby")
                 {
                     // 나간 유저 확인하기
                     if (Player1 == client) 
                     {
                         Player1 = Player2;
                         Player2 = null;
+                        newHostName = Player1.NickName;
+                        hostChanged = true;
                     }
-                    if (Player2 == client) 
+                    if (Player2 == client)
                     {
                         Player2 = null;
                     }
-                    if(_clients.Count < MAX_PLAYERS)
-                    {
-                        State = RoomState.WAITING;
-                        CurrentTurn = null;
-                    }
                 }
+                IsPlayer2Ready = false;
             }
+
+            if (shouldDestroyRoom) return true;
+            if(wasPlaying)
+            {
+                await BroadcastAsync("GAME_STOPPED|상대방이 퇴장하여 게임이 중단되었습니다.");
+            }
+            if(hostChanged)
+            {
+                await BroadcastAsync($"SYSTEM|[시스템] 기존 방장이 퇴장하여 {newHostName}님이 새로운 방장입니다.");
+            }
+
+            return false;
         }
 
         // 턴 넘기기 함수
@@ -142,6 +158,67 @@ namespace Server
                 }
 
                 await client.SendAsync(message);
+            }
+        }
+        
+        // Player2가 /ready입력 시
+        public async Task HandleReadyAsync(ClientSession client)
+        {
+            lock (_lock)
+            {
+                if (State == RoomState.PLAYING) return;
+
+                if (client == Player2)
+                {
+                    IsPlayer2Ready = !IsPlayer2Ready;
+                }
+            }
+            
+            if (client == Player2)
+            {
+                string statusMsg = IsPlayer2Ready ? "준비 완료! " : "준비 취소";
+                await BroadcastAsync($"SYSTEM|[시스템] Player2가 {statusMsg} 상태가 되었습니다.");
+            }
+            else if (client == Player1)
+            {
+                await client.SendAsync("SYSTEM|[시스템] 방장(Player1)은 준비 대신 /start를 입력하세요.");
+            }
+        }
+
+        // Player1이 /start를 쳤을 때
+        public async Task HandleStartAsync(ClientSession client)
+        {
+            bool canStart = false;
+            lock (_lock)
+            {
+                if (State == RoomState.PLAYING) return;
+
+                if (client != Player1) return;
+                
+                // 여기서 SendAsync를 하지 않는 이유는 lock 안에서 비동기 처리를 해버리면 Deadlock 위험이 있기 때문
+                if (_clients.Count < MAX_PLAYERS) return;
+
+                if (IsPlayer2Ready) // Player2가 ready일 때
+                {
+                    State = RoomState.PLAYING;
+                    CurrentTurn = Player1;
+                    Player1.SetPosition(0,0);
+                    Player2.SetPosition(4,4);
+                    canStart = true;
+                }
+            }
+
+            if(canStart)
+            {
+                // 서버에 전달
+                await BroadcastAsync($"GAME_START|{Player1.NickName}|{Player2.NickName}");
+            }
+            else if(client == Player1)
+            {
+                if (_clients.Count < MAX_PLAYERS)
+                    await client.SendAsync("SYSTEM|[시스템] 인원이 부족합니다. (2명 필요)");
+                else if (!IsPlayer2Ready)
+                    await client.SendAsync("SYSTEM|[시스템] Player2가 아직 준비되지 않았습니다.");
             }
         }
     }

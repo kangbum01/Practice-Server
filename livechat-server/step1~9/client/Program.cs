@@ -1,58 +1,356 @@
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
+using System.Xml;
 
-namespace DummyTester // 더미 클라이언트용 별도 프로젝트
+namespace Client
 {
     class Program
     {
-        // 1. 실행의 진입점인 Main 함수 내부에 '제어 로직'을 넣어야 합니다.
+        private static string _myName = "UnKnown";
+
+        // 게임 상태 및 보드 랜더링용 변수들
+        private static bool _isPlaying = false; // 게임 진행 여부 파악
+        private static int _myPosX = -1, _myPosY = -1; // 내 좌표
+        private static int _oppPosX = -1, _oppPosY = -1; // 상대방 좌표
+        private static string _opponentName = ""; // 상대방 이름
+
+        // 오른쪽에 띄워줄 최근 채팅 로그 리스트 (최대 15개)
+        private static List<string> _chatLogs = new List<string>();
+
         static async Task Main(string[] args)
         {
-            Console.WriteLine("더미 봇 1000마리 투입을 시작합니다...");
+            Console.OutputEncoding = System.Text.Encoding.UTF8;
+            Console.InputEncoding = System.Text.Encoding.UTF8;
+            TcpClient client = new TcpClient();
+            // 비동기 접속 ConnectAsync(IP, Port)
+            await client.ConnectAsync("127.0.0.1", 5000);
+            NetworkStream stream = client.GetStream();
+            StreamReader reader = new StreamReader(stream);
+            StreamWriter writer = new StreamWriter(stream);
 
-            // ✅ var와 for문은 반드시 이렇게 함수(Main) '안쪽'에 있어야 합니다!
-            var bots = new List<Task>();
-            for(int i = 0; i < 1000; i++) 
+            Console.WriteLine("Connected Server");
+            Console.WriteLine("/name NickName");
+            Console.WriteLine("/join roomName");
+            Console.WriteLine("/rooms ");
+            Console.WriteLine("/history");
+            Console.WriteLine("/quit");
+
+            // 응답 대기
+            Task receiveTask = ReceiveLoopAsync(reader,writer);
+
+
+
+            while(true)
             {
-                bots.Add(StartDummyClient(i));
+                string input = Console.ReadLine();
+
+                if(string.IsNullOrWhiteSpace(input))
+                {
+                    continue;
+                }
+
+                // 방 이동 명령어
+                if(input.StartsWith("/join "))
+                {
+                    string roomName = input.Substring(6).Trim();
+                    await writer.WriteLineAsync("JOIN_ROOM|" + roomName);
+                    await writer.FlushAsync();
+                }
+                else if(input == "/rooms")
+                {
+                    await writer.WriteLineAsync("ROOM_LIST");
+                    await writer.FlushAsync();
+                }
+                else if(input.StartsWith("/name "))
+                {
+                    // 닉네임 추출
+                    string name = input.Substring(6).Trim();
+                    await writer.WriteLineAsync("LOGIN|" + name);
+                    await writer.FlushAsync();
+                }
+
+                else if(input.StartsWith("/ready"))
+                {
+                    await writer.WriteLineAsync("READY|");
+                    await writer.FlushAsync();
+                    continue;
+                }
+
+                else if(input.StartsWith("/start"))
+                {
+                    await writer.WriteLineAsync("START|");
+                    await writer.FlushAsync();
+                    continue;
+                }
+                else if(input.StartsWith("/move "))
+                {
+                    string[] splitInput = input.Split(' ');
+
+                    if(splitInput.Length == 3)
+                    {
+                        string targetX = splitInput[1];
+                        string targetY = splitInput[2];
+
+                        // 서버에 새 포맷(MOVE | X | Y)으로 전송
+                        await writer.WriteLineAsync($"MOVE|{targetX}|{targetY}");
+                        await writer.FlushAsync();
+                    }
+                    else
+                    {
+                        Console.WriteLine("[시스템] 형식 오류: /move X Y (예: /move 1 1)");
+                    }
+                    continue;
+                }
+                else if(input == "/history")
+                {
+                    await writer.WriteLineAsync("REQUEST_CHAT_HISTORY");
+                    await writer.FlushAsync();
+                }
+                else if(input == "/quit")
+                {
+                    await writer.WriteLineAsync("QUIT");
+                    await writer.FlushAsync();
+                    break;
+                }
+                else
+                {
+                    await writer.WriteLineAsync("CHAT|" + input);
+                    await writer.FlushAsync();
+                }
             }
 
-            // 1000개의 비동기 작업이 모두 끝날 때까지 대기 (필수)
-            await Task.WhenAll(bots); 
-
-            Console.WriteLine("모든 봇의 연결이 종료되었습니다.");
+            client.Close();
+            await receiveTask;
         }
-
-        // 2. StartDummyClient는 Main과 동급인 '메서드'이므로 클래스 바로 아래에 둡니다.
-        public static async Task StartDummyClient(int botId)
+        static async Task ReceiveLoopAsync(StreamReader reader, StreamWriter writer)
         {
             try
             {
-                TcpClient client = new TcpClient("127.0.0.1", 5000);
-                var writer = new StreamWriter(client.GetStream())
-                {
-                    AutoFlush = true
-                };
-
-                // 접속하자마자 로그인 패킷 전송
-                await writer.WriteLineAsync($"LOGIN|Bot_{botId}");
-                await Task.Delay(100);
-
-                // 1초에 1번씩 미친듯이 채팅 패킷 전송 (서버 부하 유발)
                 while(true)
                 {
-                    await writer.WriteLineAsync($"CHAT|Lobby|Bot_{botId}|부하테스트 중입니다!");
-                    await Task.Delay(1000); // 1초 대기 (더 하드코어하게 하려면 100으로 줄이세요)
+                    string message = await reader.ReadLineAsync();
+
+                    if (message == null)
+                    {
+                        break;
+                    }
+
+                    if (message.StartsWith("PING"))
+                    {
+                        await writer.WriteLineAsync("PONG|");
+                        await writer.FlushAsync();
+                        continue;
+                    }
+
+                    HandleServerPacket(message);
                 }
             }
-            catch (Exception ex)
+            catch(Exception ex)
             {
-                // 봇이 서버에서 튕기거나 연결에 실패했을 때의 방어 로직
-                Console.WriteLine($"[Bot_{botId} Error] {ex.Message}");
+                Console.WriteLine("Receive Error:" + ex.Message);
             }
+        }
+
+        static void HandleServerPacket(string message)
+        {
+            // 서버에서 메시지를 받으면 패킷 파싱
+            string[] parts = message.Split('|');
+            string packetType = parts[0];
+
+            // 로그인 로직
+            if(packetType == "LOGIN_OK")
+            {
+                if (parts.Length >=2 )
+                {
+                    _myName = parts[1];
+                    Console.WriteLine("[Login_Success]" + _myName);
+                }
+                return;
+            }
+
+            // 오류 로직
+            if (packetType == "ERROR")
+            {
+                if(parts.Length >= 2)
+                {
+                    if (parts[1] == "DUPLICATE_NICKNAME")
+                    {
+                        Console.WriteLine("[ERROR] ALREADY USED NICKNAME");
+                    }
+                    else if (parts[1] == "INVALIED_NICKNAME")
+                    {
+                        Console.WriteLine("[ERROR] INCORRECT NICKNAME");
+                    }
+                    else
+                    {
+                        Console.WriteLine("[Error]" + parts[1]);    
+                    }
+                }
+                return;
+            }
+
+            // 게임 강제 종료
+            if (packetType == "GAME_STOPPED")
+            {
+                // GAME_STOPPED|Message
+                if (parts.Length >= 2)
+                {
+                    _isPlaying = false;
+
+                    Console.Clear();
+                    Console.WriteLine($"[게임 중단] {parts[1]}");
+                    Console.WriteLine("다시 시작하려면 /ready (방장은 /start)를 입력하세요.");
+                }
+                return;
+            }
+            // 종료 로직
+            if (packetType == "QUIT_OK")
+            {
+                Console.WriteLine("[Server] Disconnect");
+                return;
+            }
+
+            // =============================
+            //            게임 로직
+            // =============================
+            // 게임 시작
+            if (packetType == "GAME_START")
+            {
+                _isPlaying = true;
+                string p1 = parts[1];
+                string p2 = parts[2];
+
+                // 사용자가 p1인지 p2인지 판별하여 초기 위치 설정
+                if (_myName == p1)
+                {
+                    _myPosX = 0; _myPosY = 0;
+                    _oppPosX = 4; _oppPosY = 4;
+                    _opponentName = p2;
+                }
+                else
+                {
+                    _myPosX = 4; _myPosY = 4;
+                    _oppPosX = 0; _oppPosY = 0;
+                    _opponentName = p1;
+                }
+                _chatLogs.Add("[시스템] 게임이 시작되었습니다!");
+                RenderScreen(); // 화면 갱신
+                return;
+            }
+
+            // 플레이어 이동(PLAYER_MOVE | NickName | X | Y)
+            if (packetType == "PLAYER_MOVE")
+            {
+                string moveNick = parts[1];
+                // 패킷은 string 형태로 전달 되기 때문에 파싱을 해야함
+                int newX = int.Parse(parts[2]);
+                int newY = int.Parse(parts[3]);
+
+                if (moveNick == _myName)
+                {
+                    _myPosX = newX; _myPosY = newY;
+                }
+                else
+                {
+                    _oppPosX = newX; _oppPosY = newY;
+                }
+
+                RenderScreen(); // 좌표가 변경되었기 때문에 화명 갱신
+                return;
+            }
+
+            // 게임 종료 패킷 수신 (GAME_OVER | WIN | NickName)
+            if(packetType == "GAME_OVER" && parts[1] == "WIN")
+            {
+                _isPlaying = false; // 게임 종료
+                string winName = parts[2];
+
+                _chatLogs.Add($"[시스템] 게임 종료! 승리자: {winName}");
+                RenderScreen();
+                return;
+            }
+
+            // 패킷 수신 처리
+            if (packetType == "CHAT" || packetType == "SYSTEM")
+            {
+                // SYSTEM | NickName | Message
+                // CHAT | Room Name | NickName | Message
+                string logMessage = message.Replace("|", " ");
+                _chatLogs.Add(logMessage);
+
+                // 로그가 15줄을 넘어가면 제일 오래된 것 삭제 (화면 안 깨지게)
+                if (_chatLogs.Count > 15)
+                {
+                    _chatLogs.RemoveAt(0);
+                }
+
+                RenderScreen(); // 채팅이 추가됐으니 화면 갱신
+                return;
+            }
+
+
+
+            Console.WriteLine("[Server Message]" + message);
+        }
+        private static void RenderScreen()
+        {
+            // 1. 화면을 깨끗하게 지웁니다.
+            Console.Clear();
+
+            // 게임 중이 아니라면 (대기실 또는 로비) 채팅만 출력
+            if (!_isPlaying)
+            {
+                Console.WriteLine("==== 대기실 (Lobby) 또는 방 대기중 ====");
+                foreach (var chat in _chatLogs)
+                {
+                    Console.WriteLine(chat);
+                }
+                Console.Write("\n 명령어 입력: ");
+                return;
+            }
+
+            // 2. [왼쪽 구역] 5 x 5 보드판 그리기 (좌표:0 , 0 부터 시작)
+            Console.SetCursorPosition(0,0);
+            Console.WriteLine($"==== 5x5 보드 게임 (VS {_opponentName}) ====");
+
+            for (int y = 0; y < 5; y++)
+            {
+                for (int x = 0; x < 5; x ++)
+                {
+                    if (x == _myPosX && y == _myPosY)
+                    {
+                        Console.Write("[나]");
+                    }
+                    else if (x == _oppPosX && y == _oppPosY)
+                    {
+                        Console.Write("[적]");
+                    }
+                    else
+                    {
+                        Console.Write("[ ]");
+                    }
+                }
+                Console.WriteLine();
+            }
+
+            // 3. [오른쪽 구역] 채팅 로그 출력 
+            int chatRow = 0;
+            Console.SetCursorPosition(30, chatRow++);
+            Console.WriteLine("=== 실시간 채팅 ===");
+
+            foreach (var chat in _chatLogs)
+            {
+                Console.SetCursorPosition(30, chatRow++);
+                Console.WriteLine(chat);
+            }
+
+            // 4. [아래쪽 구역] 입력창 고정
+            Console.SetCursorPosition(0,20);
+            Console.Write("명령어 입력 (이동: /move x y | 채팅: /chat 메세지):");
+            Console.SetCursorPosition(54,20);
         }
     }
 }

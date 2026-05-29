@@ -27,6 +27,43 @@ namespace Server
 
             // 서버가 실행될 때 글로벌 Tick 루프 스레드를 백그라운드에서 실행
             _ = StartTickLoopAsync();
+
+            // 서버가 켜질 때 생존 검사(Heartbeat) 루프도 실행
+            _ = StartHeartbeatLoopAsync();
+        }
+
+        private async Task StartHeartbeatLoopAsync()
+        {
+            Console.WriteLine("[시스템] 글로벌 Heartbeat 생존 검사기 시작 (5초 주기)");
+
+            while (true)
+            {
+                await Task.Delay(5000); // 5초 마다 확인
+
+                List<ClientSession> copiedSessions;
+                lock(_sessionLock)
+                {
+                    copiedSessions = new List<ClientSession>(_sessions);
+                }
+
+                DateTime now = DateTime.Now;
+
+                foreach (var session in copiedSessions)
+                {   
+                    // 유저 확인 응답이 15초 동안 없다면? -> 좀비로 판정 후 강제 종료
+                    if ((now - session.LastHeartbeatTime).TotalSeconds > 15)
+                    {
+                        Console.WriteLine($"[Heartbeat Timeout] {session.NickName} 님이 응답이 없습니다.");
+
+                        _ = RoomManager.RemoveClientAsync(session);
+                    }
+                    else
+                    {
+                        // 15초가 안넘었다면 생존 확인을 위해 PING 패킷을 전달 (큐에 담음)
+                        await session.EnqueuePacketAsync("PING|");
+                    }
+                }
+            }
         }
 
         private async Task StartTickLoopAsync()

@@ -10,14 +10,23 @@
         {
           "DockedWidth": 200,
           "SelectedChildIndex": -1,
-          "Children": [
-            {
-              "$type": "Bookmark",
-              "Name": "ST:0:0:{cce594b6-0c39-4442-ba28-10c64ac7e89f}"
-            }
-          ]
+          "Children": []
         }
       ]
+    },
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "FloatingWindowState": {
+        "Id": "7f179a5f-7229-457c-92bc-dad2c88a9469",
+        "Display": 0,
+        "X": 1204,
+        "Y": 304,
+        "Width": 1547,
+        "Height": 729,
+        "WindowState": 0
+      },
+      "DocumentGroups": []
     }
   ]
 }

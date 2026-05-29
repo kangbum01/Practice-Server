@@ -1,4 +1,5 @@
 // 세션에서 채팅을 받으면 1. 저장하고, 2. 패킷으로 브로드캐스트하고, 3. 요청 시 최근 기록을 내린다.
+// 05/29 ping-pong 로직 추가
 using System;
 using System.IO;
 using System.Net.Sockets;
@@ -16,6 +17,9 @@ namespace Server
         private ServerManager _server;
 
         public GameRoom? CurrentRoom { get; set; }
+
+        // 마지막으로 클라이언트의 신호(Ping/Pong)를 받은 시간
+        public DateTime LastHeartbeatTime {get; set; } = DateTime.Now;
 
         public string NickName { get; private set; }
         public int PosX {get; private set; }
@@ -43,6 +47,9 @@ namespace Server
             PosX = 0;
             PosY = 0;
         }
+        // Ping-Pong 로직 추가
+        // 마지막으로 클라이언트의 신호(Ping/Pong 포함)를 받은 시간
+
         public async Task ProcessAsync()
         {
             try
@@ -55,6 +62,17 @@ namespace Server
                     if (message == null)
                     {
                         break;
+                    }
+
+                    // 패킷이 들어왔다는건 살아 있는 세션이기 때문에 갱신
+                    LastHeartbeatTime = DateTime.Now;
+
+                    string[] parts = message.Split('|');
+                    string command = parts[0];
+
+                    if (command == "PONG")
+                    {
+                        continue;
                     }
 
                     Console.WriteLine($"[RECV | {NickName}] {message}");
@@ -76,6 +94,7 @@ namespace Server
                 await CleanUpSessionAsync();
             }
         }
+
 
         private async Task CleanUpSessionAsync()
         {

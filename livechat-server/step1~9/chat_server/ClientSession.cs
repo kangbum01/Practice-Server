@@ -29,6 +29,12 @@ namespace Server
             _client = client;
             _server = server;
 
+            // TCP 네이글 알고리즘 비활성화
+            // 네이클 알고리즘은 토큰이 가득 차면 전달하는 알고리즘으로
+            // 현재 작업에서는 일정 시간이 지나면 자동으로 전달하는 Tick 기반 패킷 배치 시스템이기 때문에
+            // 비활성화 해야 함
+            _client.NoDelay = true;
+
             NetworkStream stream = _client.GetStream();
             _reader = new StreamReader(stream);
             _writer = new StreamWriter(stream);
@@ -106,32 +112,32 @@ namespace Server
             {
                 if (parts.Length < 2)
                 {
-                    await SendAsync("ERROR|LOGIN_FORMAT");
+                    await EnqueuePacketAsync("ERROR|LOGIN_FORMAT");
                     return;
                 }
 
                 if(IsLoggedIn)
                 {
-                    await SendAsync("ERROR|ALREADY_LOGIN");
+                    await EnqueuePacketAsync("ERROR|ALREADY_LOGIN");
                     return;
                 }
                 string requestedNickName = parts[1].Trim();
                 if(string.IsNullOrWhiteSpace(requestedNickName))
                 {
-                    await SendAsync("ERROR|INVALID_NICKNAME");
+                    await EnqueuePacketAsync("ERROR|INVALID_NICKNAME");
                     return;
                 }
                 bool success = _server.TryRegisterNickName(requestedNickName);
 
                 if(!success)
                 {
-                    await SendAsync("ERROR|DUPLICATE_NICKNAME");
+                    await EnqueuePacketAsync("ERROR|DUPLICATE_NICKNAME");
                     return;
                 }
 
                 NickName = requestedNickName;
                 IsLoggedIn = true;
-                await SendAsync("LOGIN_OK|" + NickName);
+                await EnqueuePacketAsync("LOGIN_OK|" + NickName);
                 // 해당 방의 유저들에게만 새로운 유저의 참가를 알린다
                 await _server.RoomManager.MoveClientToRoomAsync(this, "Lobby");
                 
@@ -141,15 +147,15 @@ namespace Server
 
             if(!IsLoggedIn)
             {
-                // SendAsync는 서버에 보낼 내용
+                // EnqueuePacketAsync는 서버에 보낼 내용
                 // _server.BraodcastAsync는 다른 사용자에게 보낼 내용
-                await SendAsync("ERROR|LOGIN_REQUIRED");
+                await EnqueuePacketAsync("ERROR|LOGIN_REQUIRED");
                 return;
             }
 
             if (command == "ROOM_LIST")
             {
-                await SendAsync(_server.RoomManager.BuildRoomListPacket());
+                await EnqueuePacketAsync(_server.RoomManager.BuildRoomListPacket());
                 return;
             }
 
@@ -157,7 +163,7 @@ namespace Server
             {
                 if (parts.Length < 2)
                 {
-                    await SendAsync("ERROR|JOIN_ROOM_ERROR");
+                    await EnqueuePacketAsync("ERROR|JOIN_ROOM_ERROR");
                     return;
                 }
 
@@ -165,7 +171,7 @@ namespace Server
 
                 if(string.IsNullOrWhiteSpace(roomName))
                 {
-                    await SendAsync("ERROR|INVALID_ROOM_NAME");
+                    await EnqueuePacketAsync("ERROR|INVALID_ROOM_NAME");
                     return;
                 }
 
@@ -178,13 +184,13 @@ namespace Server
             {
                 if(parts.Length < 2)
                 {
-                    await SendAsync("ERROR|CHAT_FORMAT");
+                    await EnqueuePacketAsync("ERROR|CHAT_FORMAT");
                     return;
                 }
 
                 if (CurrentRoom == null)
                 {
-                    await SendAsync("ERROR|ROOM_REQUIRED");
+                    await EnqueuePacketAsync("ERROR|ROOM_REQUIRED");
                     return;
                 }
             
@@ -225,33 +231,33 @@ namespace Server
                 // MOVE|목표X|목표Y 형태로 전달되었는지 확인
                 if (parts.Length< 3)
                 {
-                    await SendAsync("ERROR|MOVE_FORMAT_INVALID");
+                    await EnqueuePacketAsync("ERROR|MOVE_FORMAT_INVALID");
                     return;
                 }
 
                 if (CurrentRoom == null || CurrentRoom.Name == "Lobby")
                 {
-                    await SendAsync("ERROR|ROOM_REQUIRED");
+                    await EnqueuePacketAsync("ERROR|ROOM_REQUIRED");
                     return;
                 }
 
                 // 1단계: 게임 상태 및 턴(Turn) 검증
                 if (CurrentRoom.State != RoomState.PLAYING)
                 {
-                    await SendAsync("ERROR|GAME_NOT_STARTED");
+                    await EnqueuePacketAsync("ERROR|GAME_NOT_STARTED");
                     return;
                 }
 
                 if (CurrentRoom.CurrentTurn != this)
                 {
-                    await SendAsync("ERROR|NOT_YOUR_TURN");
+                    await EnqueuePacketAsync("ERROR|NOT_YOUR_TURN");
                     return;
                 }
 
                 // 2단계 가상 좌표 파싱
                 if (!int.TryParse(parts[1], out int targetX) || !int.TryParse(parts[2], out int targetY))
                 {
-                    await SendAsync("ERROR|INVALID_COORDINATE_FORMAT");
+                    await EnqueuePacketAsync("ERROR|INVALID_COORDINATE_FORMAT");
                     return;
                 }
 
@@ -259,7 +265,7 @@ namespace Server
                 // 3-1 5x5 보드판 (0~4) 밖으로 나갔는지 확인
                 if (targetX < 0 || targetX > 4 || targetY < 0 || targetY > 4)
                 {
-                    await SendAsync("ERROR|OUT_OF_BOUNDS");
+                    await EnqueuePacketAsync("ERROR|OUT_OF_BOUNDS");
                     return;
                 }
                 
@@ -269,7 +275,7 @@ namespace Server
 
                 if (diffX > 1 || diffY > 1 || (diffX == 0 && diffY == 0))
                 {
-                    await SendAsync("ERROR|INVALID_MOVE_RULE");
+                    await EnqueuePacketAsync("ERROR|INVALID_MOVE_RULE");
                     return;
                 }
 
@@ -301,12 +307,12 @@ namespace Server
             if(command == "QUIT")
             {
                 // 해당 세션을 종료
-                await SendAsync("QUIT_OK");
+                await EnqueuePacketAsync("QUIT_OK");
                 _client.Close();
                 return;
             }
 
-            await SendAsync("ERROR|UNKNOWN_COMMAND");
+            await EnqueuePacketAsync("ERROR|UNKNOWN_COMMAND");
         }
 
         public void SetPosition(int x, int y)
@@ -325,31 +331,62 @@ namespace Server
         {
             List<ChatMessage> history = _server.GetRecentMessage();
 
-            await SendAsync("CHAT_HISTORY_BEGIN");
+            await EnqueuePacketAsync("CHAT_HISTORY_BEGIN");
 
             foreach (ChatMessage message in history)
             {
-                await SendAsync(message.ToHistoryPacket());
+                await EnqueuePacketAsync(message.ToHistoryPacket());
             }
-            await SendAsync("CHAT_HISTORY_END");
+            await EnqueuePacketAsync("CHAT_HISTORY_END");
         }
 
-        public async Task SendAsync(string message)
+        // 기존의 EnqueuePacketAsync를 쪼개는 작업
+        // public async Task EnqueuePacketAsync(string message)
+        // {
+        //     try
+        //     {
+        //         Console.WriteLine($"[SEND | {NickName}] {message}");
+
+        //         await _writer.WriteLineAsync(message);
+        //         await _writer.FlushAsync();
+        //     }
+        //     catch(ObjectDisposedException)
+        //     {
+                
+        //     }
+        //     catch (Exception ex)
+        //     {
+        //         Console.WriteLine($"[SEND ERROR | {NickName}] 패킷 전송 실패: {ex.Message}");
+        //     }
+        // }
+
+        // 1. EnqueuePacketAsync는 버퍼에 쌓는 메서드
+        public async Task EnqueuePacketAsync(string message)
         {
             try
             {
-                Console.WriteLine($"[SEND | {NickName}] {message}");
-
+                Console.WriteLine($"[ENQUEUE | {NickName}] {message}");
                 await _writer.WriteLineAsync(message);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[ENQUEUE ERROR | {NickName}] 패킷 버퍼링 실패: {ex.Message}");
+            }
+        }
+        // 2. FlushNetworkAsync()는 전송 메서드
+        public async Task FlushNetworkAsync()
+        {
+            try
+            {
                 await _writer.FlushAsync();
             }
-            catch(ObjectDisposedException)
+            catch (ObjectDisposedException)
             {
                 
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SEND ERROR | {NickName}] 패킷 전송 실패: {ex.Message}");
+                Console.WriteLine($"[FLUSH ERROR | {NickName}] 패킷 전송 실패: {ex.Message}");
             }
         }
     }

@@ -24,7 +24,33 @@ namespace Server
             _chatRepository = chatRepository;
 
             RoomManager = new RoomManager();
+
+            // 서버가 실행될 때 글로벌 Tick 루프 스레드를 백그라운드에서 실행
+            _ = StartTickLoopAsync();
         }
+
+        private async Task StartTickLoopAsync()
+        {
+            Console.WriteLine("[시스템] 글로벌 Tick 전송 루프 시작 (100ms 주기)");
+
+            while (true)
+            {
+                await Task.Delay(100);
+
+                List<ClientSession> copiedSession;
+                lock(_sessionLock)
+                {
+                    copiedSession = new List<ClientSession>(_sessions);
+                }
+
+                foreach (var session in copiedSession)
+                {
+                    //각 세션 버퍼에 쌓여있는 패킷들을 한 번에 밀어낸다.
+                    await session.FlushNetworkAsync();
+                }
+            }
+        }
+
         public void AddSession(ClientSession session)
         {
             lock(_sessionLock)
@@ -70,7 +96,8 @@ namespace Server
             }
             foreach (ClientSession session in copiedSessions)
             {
-                await session.SendAsync(message);
+                // 버퍼에 저장했다가 전송
+                await session.EnqueuePacketAsync(message);
             }
         }
 

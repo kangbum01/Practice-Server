@@ -157,7 +157,7 @@ namespace Server
                     continue;
                 }
 
-                await client.SendAsync(message);
+                await client.EnqueuePacketAsync(message);
             }
         }
         
@@ -181,7 +181,7 @@ namespace Server
             }
             else if (client == Player1)
             {
-                await client.SendAsync("SYSTEM|[시스템] 방장(Player1)은 준비 대신 /start를 입력하세요.");
+                await client.EnqueuePacketAsync("SYSTEM|[시스템] 방장(Player1)은 준비 대신 /start를 입력하세요.");
             }
         }
 
@@ -195,7 +195,7 @@ namespace Server
 
                 if (client != Player1) return;
                 
-                // 여기서 SendAsync를 하지 않는 이유는 lock 안에서 비동기 처리를 해버리면 Deadlock 위험이 있기 때문
+                // 여기서 EnqueuePacketAsync를 하지 않는 이유는 lock 안에서 비동기 처리를 해버리면 Deadlock 위험이 있기 때문
                 if (_clients.Count < MAX_PLAYERS) return;
 
                 if (IsPlayer2Ready) // Player2가 ready일 때
@@ -216,9 +216,9 @@ namespace Server
             else if(client == Player1)
             {
                 if (_clients.Count < MAX_PLAYERS)
-                    await client.SendAsync("SYSTEM|[시스템] 인원이 부족합니다. (2명 필요)");
+                    await client.EnqueuePacketAsync("SYSTEM|[시스템] 인원이 부족합니다. (2명 필요)");
                 else if (!IsPlayer2Ready)
-                    await client.SendAsync("SYSTEM|[시스템] Player2가 아직 준비되지 않았습니다.");
+                    await client.EnqueuePacketAsync("SYSTEM|[시스템] Player2가 아직 준비되지 않았습니다.");
             }
         }
     }

@@ -58,7 +58,7 @@ namespace Server
             // 방 입장 시도(꽉 찼는지 확인)
             if (newRoom.TryAddClient(client) == false)
             {
-                await client.SendAsync("ERROR|ROOM_FULL");
+                await client.EnqueuePacketAsync("ERROR|ROOM_FULL");
                 return;
             }
 
@@ -85,7 +85,7 @@ namespace Server
             client.CurrentRoom = newRoom;
             // client 화면에 현재 이동한 방을 출력
             // 신규 client가 들어간 방의 유저들에게 그 사실을 알린다.
-            await client.SendAsync("SYSTEM|Current Room: |" + newRoom.Name);
+            await client.EnqueuePacketAsync("SYSTEM|Current Room: |" + newRoom.Name);
             await newRoom.BroadcastAsync("SYSTEM|" + client.NickName + "|Enter the room");
         
             // 만약 내가 들어감으로써 방이 꽉 찼다면, 게임 시작 패킷을 전달

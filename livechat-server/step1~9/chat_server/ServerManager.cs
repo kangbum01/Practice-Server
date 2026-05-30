@@ -57,7 +57,7 @@ namespace Server
 
                         _ = RoomManager.RemoveClientAsync(session);
                     }
-                    else
+                    else if ((now - session.LastHeartbeatTime).TotalSeconds > 5)
                     {
                         // 15초가 안넘었다면 생존 확인을 위해 PING 패킷을 전달 (큐에 담음)
                         await session.EnqueuePacketAsync("PING|");

@@ -16,6 +16,7 @@ namespace Client
         private static int _myPosX = -1, _myPosY = -1; // 내 좌표
         private static int _oppPosX = -1, _oppPosY = -1; // 상대방 좌표
         private static string _opponentName = ""; // 상대방 이름
+        
 
         // 오른쪽에 띄워줄 최근 채팅 로그 리스트 (최대 15개)
         private static List<string> _chatLogs = new List<string>();
@@ -125,7 +126,7 @@ namespace Client
             client.Close();
             await receiveTask;
         }
-        static async Task ReceiveLoopAsync(StreamReader reader, StreamWriter writer)
+        static async Task ReceiveLoopAsync(StreamReader reader,StreamWriter writer)
         {
             try
             {

@@ -96,12 +96,8 @@ namespace Server
                     {
                         Player1 = Player2;
                         Player2 = null;
-                        if(Player1 != null)
-                        {
-                            newHostName = Player1.NickName;
-                            hostChanged = true;
-                        }
-
+                        newHostName = Player1.NickName;
+                        hostChanged = true;
                     }
                     else if (Player2 == client)
                     {

@@ -70,6 +70,9 @@ namespace Server
                     string[] parts = message.Split('|');
                     string command = parts[0];
 
+                    // 서버 -> 클라이언트 (PING)
+                    // 클라이언트 -> 서버 (PONG)
+                    // 그래서 ClientSession은 Client가 PONG을 보내면 아직 살아 있다 판단
                     if (command == "PONG")
                     {
                         continue;

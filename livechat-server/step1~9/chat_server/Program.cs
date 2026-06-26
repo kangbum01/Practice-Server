@@ -17,9 +17,9 @@ namespace Server
             ServerManager serverManager = new ServerManager(chatRepository);
 
             TcpListener listener = new TcpListener(IPAddress.Parse("127.0.0.1"), 5000);
-            listener.Start();
+            listener.Start(10000);
 
-            Console.WriteLine("Starting Server. Waitng to 127.0.0.1:5000 ");
+            // Console.WriteLine("Starting Server. Waitng to 127.0.0.1:5000 ");
 
             while (true)
             {
